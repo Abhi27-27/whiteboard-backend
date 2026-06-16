@@ -19,6 +19,11 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Health check route for uptime monitors
+app.get("/", (req, res) => {
+  res.status(200).send("Whiteboard backend is up and running!");
+});
+
 // Routes
 app.use("/api/users", userRoutes);
 app.use("/api/canvas", canvasRoutes);
