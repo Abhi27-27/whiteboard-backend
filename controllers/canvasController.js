@@ -162,6 +162,23 @@ exports.deleteCanvas = async (req, res) => {
         }
 
         await Canvas.findByIdAndDelete(canvasId);
+
+        // Clean up in-memory cache and any pending save timer
+        const canvasData = req.app.locals.canvasData;
+        const saveTimers = req.app.locals.saveTimers;
+        if (canvasData) delete canvasData[canvasId];
+        if (saveTimers && saveTimers[canvasId]) {
+            clearTimeout(saveTimers[canvasId]);
+            delete saveTimers[canvasId];
+        }
+
+        // Notify other clients viewing this canvas (exclude the owner so the
+        // Sidebar's own navigation takes precedence for the deleting user).
+        const io = req.app.locals.io;
+        if (io) {
+            io.to(canvasId).except(`user:${userId}`).emit("canvasDeleted", { canvasId });
+        }
+
         res.json({ message: "Canvas deleted successfully" });
     } catch (error) {
         res.status(500).json({ error: "Failed to delete canvas", details: error.message });

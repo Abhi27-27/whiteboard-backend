@@ -36,10 +36,12 @@ const io = new Server(server, {
   },
 });
 
-app.locals.io = io;
-
 let canvasData = {};
 const saveTimers = {};
+
+app.locals.io = io;
+app.locals.canvasData = canvasData;
+app.locals.saveTimers = saveTimers;
 
 io.on("connection", (socket) => {
   console.log("A user connected:", socket.id);
