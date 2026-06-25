@@ -110,6 +110,11 @@ exports.shareCanvas = async (req, res) => {
         canvas.shared.push(sharedUserId);
         await canvas.save();
 
+        const io = req.app.locals.io;
+        if (io) {
+            io.to(`user:${sharedUserId}`).emit("canvasShared", { canvasId: canvas._id });
+        }
+
         res.json({ message: "Canvas shared successfully" });
     } catch (error) {
         res.status(500).json({ error: "Failed to share canvas", details: error.message });

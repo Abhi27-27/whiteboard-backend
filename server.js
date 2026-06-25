@@ -24,6 +24,7 @@ connectToDB();
 
 const server = http.createServer(app);
 
+
 const allowedOrigins = ["http://localhost:3000", process.env.FRONTEND_URL]
   .filter(Boolean)
   .map((o) => o.replace(/\/+$/, ""));
@@ -34,6 +35,8 @@ const io = new Server(server, {
     methods: ["GET", "POST"],
   },
 });
+
+app.locals.io = io;
 
 let canvasData = {};
 const saveTimers = {};
@@ -49,46 +52,42 @@ io.on("connection", (socket) => {
         (socket.handshake.headers.authorization || "").replace("Bearer ", "");
 
       if (!token) {
-        console.log("No token provided.");
-        setTimeout(() => {
-          socket.emit("unauthorized", { message: "Access Denied: No Token" });
-        }, 100);
+        socket.emit("unauthorized", { message: "Access Denied: No Token" });
         return;
       }
 
       const decoded = jwt.verify(token, SECRET_KEY);
       const userId = decoded.userId;
-      console.log("User ID:", userId);
 
       const canvas = await Canvas.findById(canvasId);
       if (
         !canvas ||
         (String(canvas.owner) !== String(userId) &&
-          !canvas.shared.includes(userId))
+          !canvas.shared.map(String).includes(String(userId)))
       ) {
-        console.log("Unauthorized access.");
-        setTimeout(() => {
-          socket.emit("unauthorized", {
-            message: "You are not authorized to join this canvas.",
-          });
-        }, 100);
+        socket.emit("unauthorized", {
+          message: "You are not authorized to join this canvas.",
+        });
         return;
       }
 
       socket.join(canvasId);
-      console.log(`User ${socket.id} joined canvas ${canvasId}`);
+      socket.join(`user:${userId}`);
+      console.log(`User ${userId} joined canvas ${canvasId}`);
 
-      if (canvasData[canvasId]) {
-        socket.emit("loadCanvas", canvasData[canvasId]);
-      } else {
-        socket.emit("loadCanvas", canvas.elements);
-      }
+      const elements = canvasData[canvasId] ?? canvas.elements;
+      socket.emit("loadCanvas", elements);
     } catch (error) {
       console.error(error);
       socket.emit("error", {
         message: "An error occurred while joining the canvas.",
       });
     }
+  });
+
+  socket.on("leaveCanvas", ({ canvasId }) => {
+    socket.leave(canvasId);
+    console.log(`Socket ${socket.id} left canvas ${canvasId}`);
   });
 
   socket.on("drawingUpdate", async ({ canvasId, elements }) => {
