@@ -2,10 +2,9 @@ const Canvas = require("../models/canvasModel");
 const User = require("../models/userModel");
 const mongoose = require("mongoose");
 
-// Create a new canvas
 exports.createCanvas = async (req, res) => {
     try {
-        const userId = req.userId; // Get the authenticated user ID
+        const userId = req.userId; 
 
         const newCanvas = new Canvas({
             owner: userId,
@@ -20,7 +19,6 @@ exports.createCanvas = async (req, res) => {
     }
 };
 
-// Update an existing canvas (when elements are drawn)
 exports.updateCanvas = async (req, res) => {
     try {
         const { canvasId, elements } = req.body;
@@ -32,7 +30,7 @@ exports.updateCanvas = async (req, res) => {
             return res.status(404).json({ error: "Canvas not found" });
         }
 
-        // Ensure only the owner or shared users can update
+        
         if (canvas.owner.toString() !== userId && !canvas.shared.includes(userId)) {
             return res.status(403).json({ error: "Unauthorized to update this canvas" });
         }
@@ -48,7 +46,6 @@ exports.updateCanvas = async (req, res) => {
     }
 };
 
-// Load a canvas
 exports.loadCanvas = async (req, res) => {
     try {
         const canvasId = req.params.id;
@@ -59,7 +56,7 @@ exports.loadCanvas = async (req, res) => {
             return res.status(404).json({ error: "Canvas not found" });
         }
 
-        // Ensure only the owner or shared users can access it
+        
         if (canvas.owner.toString() !== userId && !canvas.shared.includes(userId)) {
             return res.status(403).json({ error: "Unauthorized to access this canvas" });
         }
@@ -70,14 +67,13 @@ exports.loadCanvas = async (req, res) => {
     }
 };
 
-
 exports.shareCanvas = async (req, res) => {
     try {
         const { email } = req.body; 
         const canvasId = req.params.id;
         const userId = req.userId; 
 
-        // Find the user by email
+        
         const userToShare = await User.findOne({ email });
         if (!userToShare) {
             return res.status(404).json({ error: "User with this email not found" });
@@ -92,21 +88,21 @@ exports.shareCanvas = async (req, res) => {
             return res.status(403).json({ error: "Only the owner can share this canvas" });
         }
 
-        // Ensure the shared userId is an ObjectId
+        
         const sharedUserId = new mongoose.Types.ObjectId(userToShare._id);
 
-        // Prevent adding the owner to shared list
+        
         if (canvas.owner.toString() === sharedUserId.toString()) {
             return res.status(400).json({ error: "Owner cannot be added to shared list" });
         }
 
-        // Check if the user is already in the shared array
+        
         const alreadyShared = canvas.shared.some(id => id.toString() === sharedUserId.toString());
         if (alreadyShared) {
             return res.status(400).json({ error: "Already shared with user" });
         }
 
-        // Add user to shared list
+        
         canvas.shared.push(sharedUserId);
         await canvas.save();
 
@@ -121,8 +117,6 @@ exports.shareCanvas = async (req, res) => {
     }
 };
 
-
-// Unshare canvas from a user
 exports.unshareCanvas = async (req, res) => {
     try {
         const { userIdToRemove } = req.body;
@@ -163,7 +157,7 @@ exports.deleteCanvas = async (req, res) => {
 
         await Canvas.findByIdAndDelete(canvasId);
 
-        // Clean up in-memory cache and any pending save timer
+        
         const canvasData = req.app.locals.canvasData;
         const saveTimers = req.app.locals.saveTimers;
         if (canvasData) delete canvasData[canvasId];
@@ -172,8 +166,8 @@ exports.deleteCanvas = async (req, res) => {
             delete saveTimers[canvasId];
         }
 
-        // Notify other clients viewing this canvas (exclude the owner so the
-        // Sidebar's own navigation takes precedence for the deleting user).
+        
+        
         const io = req.app.locals.io;
         if (io) {
             io.to(canvasId).except(`user:${userId}`).emit("canvasDeleted", { canvasId });
